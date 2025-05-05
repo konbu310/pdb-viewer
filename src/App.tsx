@@ -6,17 +6,17 @@ function App() {
   const [isSpin, setIsSpin] = useState<boolean>(true);
   const [axis, setAxis] = useState<string>("vy");
   const [speed, setSpeed] = useState<number>(1);
+  const [recording, setRecording] = useState<boolean>(false);
+  const [url, setUrl] = useState<string | null>(null);
+
   const viewerRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const render = (text: string) => {
     const mol = "$3Dmol" in window ? (window as any)["$3Dmol"] : null;
 
-    const viewer = mol.createViewer(document.getElementById("viewer"), {
+    const viewer = mol.createViewer(containerRef.current, {
       backgroundColor: "white",
-      width: 1000,
-      height: 1000,
-      antialias: true,
-      preserveDrawingBuffer: true,
     });
     viewer.zoomTo();
     viewer.addModel(text, "pdb");
@@ -43,6 +43,59 @@ function App() {
     reader.readAsText(file);
   };
 
+  const mimeType = "video/webm;codecs=vp9";
+
+  const handleRecord = () => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    setRecording(true);
+    const canvas = viewer.glDOM as HTMLCanvasElement;
+    const stream = canvas.captureStream(60);
+    const recordedChunks: Blob[] = [];
+    let recorder: MediaRecorder | null = null;
+    recorder = new MediaRecorder(stream, {
+      mimeType,
+      videoBitsPerSecond: 5_000_000,
+    });
+    recordedChunks.length = 0;
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        recordedChunks.push(event.data);
+      }
+    };
+    recorder.onstop = async () => {
+      console.log(recordedChunks[0]);
+      const blob = new Blob(recordedChunks, { type: recordedChunks[0].type });
+      const url = URL.createObjectURL(blob);
+      setUrl(url);
+    };
+    recorder.start();
+
+    window.setTimeout(() => {
+      recorder.stop();
+      setRecording(false);
+    }, 5000);
+  };
+
+  // カメラ平行移動（パン）
+  const panCamera = (dx: number, dy: number) => {
+    // NOTE: yの正方向が上（CanvasのY軸とは逆）
+    viewerRef.current?.translate(dx, -dy);
+    viewerRef.current?.render();
+  };
+
+  // カメラ回転
+  const rotateCamera = (angle: number, axis: "x" | "y") => {
+    viewerRef.current?.rotate(angle, axis);
+    viewerRef.current?.render();
+  };
+
+  // ズーム（倍率を掛ける）
+  const zoomCamera = (factor: number) => {
+    viewerRef.current?.zoom(factor);
+    viewerRef.current?.render();
+  };
+
   useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer) return;
@@ -55,10 +108,6 @@ function App() {
 
   return (
     <div>
-      <div
-        id="viewer"
-        style={{ position: "relative", width: "640px", height: "480px" }}
-      ></div>
       <input type="file" onChange={handleFileChange} />
 
       <button onClick={() => setIsSpin((p) => !p)}>Spin</button>
@@ -70,12 +119,62 @@ function App() {
       </select>
 
       <input
-        type="range"
-        min={0}
-        max={10}
-        step={0.1}
+        type="number"
+        value={speed}
         onChange={(e) => setSpeed(+e.target.value)}
       />
+
+      <button onClick={handleRecord}>
+        {recording ? "Recording..." : "Record"}
+      </button>
+
+      <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
+        {/* 平行移動 */}
+        <div>
+          <h3>移動</h3>
+          <div style={{ textAlign: "center" }}>
+            <button onClick={() => panCamera(0, 20)}>↑ 上</button>
+            <br />
+            <button onClick={() => panCamera(-20, 0)}>← 左</button>
+            <button onClick={() => panCamera(20, 0)}>右 →</button>
+            <br />
+            <button onClick={() => panCamera(0, -20)}>↓ 下</button>
+          </div>
+        </div>
+
+        {/* 回転 */}
+        <div>
+          <h3>回転</h3>
+          <div style={{ textAlign: "center" }}>
+            <button onClick={() => rotateCamera(10, "x")}>↻ X+10°</button>
+            <button onClick={() => rotateCamera(-10, "x")}>↺ X-10°</button>
+            <br />
+            <button onClick={() => rotateCamera(10, "y")}>↻ Y+10°</button>
+            <button onClick={() => rotateCamera(-10, "y")}>↺ Y-10°</button>
+          </div>
+        </div>
+
+        {/* ズーム */}
+        <div>
+          <h3>ズーム</h3>
+          <div style={{ textAlign: "center" }}>
+            <button onClick={() => zoomCamera(1.2)}>🔍 拡大</button>
+            <button onClick={() => zoomCamera(0.8)}>🔎 縮小</button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        ref={containerRef}
+        style={{
+          marginInline: "auto",
+          position: "relative",
+          width: "800px",
+          height: "600px",
+        }}
+      />
+
+      {url && <video src={url} controls width={800} height={600}></video>}
     </div>
   );
 }
