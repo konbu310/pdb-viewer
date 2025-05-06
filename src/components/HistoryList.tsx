@@ -8,6 +8,7 @@ import { FileData } from "@/App.tsx";
 interface HistoryListProps {
   history: FileData[];
   onSelectFile: (file: FileData) => void;
+  onDeleteFile: (file: FileData) => void;
   onClearHistory: () => void;
   onRenameFile: (oldFile: FileData, newName: string) => void;
 }
@@ -15,6 +16,7 @@ interface HistoryListProps {
 export const HistoryList: FC<HistoryListProps> = ({
   history,
   onSelectFile,
+  onDeleteFile,
   onClearHistory,
   onRenameFile,
 }) => {
@@ -79,74 +81,94 @@ export const HistoryList: FC<HistoryListProps> = ({
         </Button>
       </div>
 
-      <ScrollArea className="h-[400px] rounded-md border">
+      <ScrollArea className="max-h-[75vh] rounded-md border">
         <div className="p-4 space-y-4">
-          {history.map((file, index) => (
-            <div
-              key={file.name + index}
-              className="flex items-center p-3 rounded-lg border hover:bg-accent transition-colors group"
-            >
-              <div className="mr-4 p-2 rounded-full bg-primary/10">
-                <FileText className="h-6 w-6 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                {editingIndex === index ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={editingName}
-                      onChange={(e) => setEditingName(e.target.value)}
-                      className="h-8"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveEditing(file);
-                        if (e.key === "Escape") cancelEditing();
-                      }}
-                    />
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => saveEditing(file)}
-                      className="h-8 w-8"
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={cancelEditing}
-                      className="h-8 w-8"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+          {history
+            .sort(
+              (a, b) =>
+                new Date(b.storedAt).getTime() - new Date(a.storedAt).getTime(),
+            )
+            .map((file, index) => (
+              <div
+                key={file.name + index}
+                className="flex items-center p-3 rounded-lg border hover:bg-accent transition-colors group"
+              >
+                <div className="mr-4 p-2 rounded-full bg-primary/10">
+                  <FileText className="h-6 w-6 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  {editingIndex === index ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        className="h-8"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.nativeEvent.isComposing)
+                            saveEditing(file);
+                          if (e.key === "Escape") cancelEditing();
+                        }}
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => saveEditing(file)}
+                        className="h-8 w-8"
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={cancelEditing}
+                        className="h-8 w-8"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <p
+                        className="font-medium truncate cursor-pointer"
+                        onClick={() => onSelectFile(file)}
+                      >
+                        {file.name}
+                      </p>
+
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditing(index, file.name);
+                          }}
+                          className="h-8 w-8"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteFile(file);
+                          }}
+                          className="h-8 w-8 text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex text-xs text-muted-foreground mt-1">
+                    <span className="mr-4">{formatFileSize(file.size)}</span>
+                    <span>{formatDate(file.storedAt)}</span>
                   </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <p
-                      className="font-medium truncate cursor-pointer"
-                      onClick={() => onSelectFile(file)}
-                    >
-                      {file.name}
-                    </p>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startEditing(index, file.name);
-                      }}
-                      className="h-8 w-8 ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-                <div className="flex text-xs text-muted-foreground mt-1">
-                  <span className="mr-4">{formatFileSize(file.size)}</span>
-                  <span>{formatDate(file.storedAt)}</span>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
       </ScrollArea>
     </div>

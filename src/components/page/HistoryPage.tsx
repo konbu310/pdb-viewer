@@ -31,13 +31,22 @@ export const HistoryPage: FC<{}> = ({}) => {
     });
   };
 
+  const handleDeleteFile = (file: FileData) => {
+    setFilesData((prev) => prev.filter((f) => f.id !== file.id));
+  };
+
+  const handleClearHistory = () => {
+    setFilesData([]);
+  };
+
   return (
     <Card>
       <CardContent>
         <HistoryList
           history={filesData}
           onSelectFile={handleSelectFile}
-          onClearHistory={() => setFilesData([])}
+          onClearHistory={handleClearHistory}
+          onDeleteFile={handleDeleteFile}
           onRenameFile={handleRenameFile}
         />
       </CardContent>

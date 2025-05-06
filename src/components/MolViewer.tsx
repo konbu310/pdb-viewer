@@ -14,25 +14,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import { LoaderCircle, Square, SquareCheck } from "lucide-react";
+import { useCanvasRecorder } from "@/hooks/useCanvasRecorder.ts";
 
-export const MolViewer: FC<{ pdbText: string | null }> = ({ pdbText }) => {
-  const [axis, setAxis] = useState<string>("none");
+export const MolViewer: FC<{ pdbText: string }> = ({ pdbText }) => {
+  const [isSpin, setIsSpin] = useState<boolean>(false);
+  const [axis, setAxis] = useState<string>("vy");
   const [speed, setSpeed] = useState<number>(1);
-  const [recording, setRecording] = useState<boolean>(false);
-  const [url, setUrl] = useState<string | null>(null);
 
   const viewerRef = useRef<any>(null);
-
-  const isSpin = axis !== "none";
+  const { canvasRef, recording, reset, start, videoUrl } = useCanvasRecorder();
 
   const render = useCallback<RefCallback<HTMLDivElement>>(
     (node) => {
       if (!node) return;
-
       const mol = "$3Dmol" in window ? (window as any)["$3Dmol"] : null;
-
       const viewer = mol.createViewer(node, {
-        backgroundColor: "white",
+        canvas: canvasRef.current,
+        antialias: true,
       });
       viewer.zoomTo();
       viewer.addModel(pdbText, "pdb");
@@ -44,48 +44,13 @@ export const MolViewer: FC<{ pdbText: string | null }> = ({ pdbText }) => {
       viewer.zoomTo();
       viewer.render();
       viewerRef.current = viewer;
-      viewer.glDOM.style.setProperty("border", "1px solid #ccc");
     },
-    [pdbText],
+    [canvasRef, pdbText],
   );
-
-  const mimeType = "video/webm;codecs=vp9";
-
-  const handleRecord = () => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-    setRecording(true);
-    const canvas = viewer.glDOM as HTMLCanvasElement;
-    const stream = canvas.captureStream(60);
-    const recordedChunks: Blob[] = [];
-    let recorder: MediaRecorder | null = null;
-    recorder = new MediaRecorder(stream, {
-      mimeType,
-      videoBitsPerSecond: 5_000_000,
-    });
-    recordedChunks.length = 0;
-    recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        recordedChunks.push(event.data);
-      }
-    };
-    recorder.onstop = async () => {
-      const blob = new Blob(recordedChunks, { type: recordedChunks[0].type });
-      const url = URL.createObjectURL(blob);
-      setUrl(url);
-    };
-    recorder.start();
-
-    window.setTimeout(() => {
-      recorder.stop();
-      setRecording(false);
-    }, 5000);
-  };
 
   // カメラ平行移動（パン）
   const panCamera = (dx: number, dy: number) => {
-    // NOTE: yの正方向が上（CanvasのY軸とは逆）
-    viewerRef.current?.translate(dx, -dy);
+    viewerRef.current?.translate(dx, dy);
     viewerRef.current?.render();
   };
 
@@ -102,6 +67,32 @@ export const MolViewer: FC<{ pdbText: string | null }> = ({ pdbText }) => {
   };
 
   useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "ArrowUp") {
+        panCamera(0, 20);
+      } else if (event.key === "ArrowDown") {
+        panCamera(0, -20);
+      } else if (event.key === "ArrowLeft") {
+        panCamera(-20, 0);
+      } else if (event.key === "ArrowRight") {
+        panCamera(20, 0);
+      } else if (event.key === "z") {
+        zoomCamera(1.1);
+      } else if (event.key === "x") {
+        zoomCamera(0.9);
+      } else if (event.key === "r") {
+        rotateCamera(10, "x");
+      } else if (event.key === "t") {
+        rotateCamera(-10, "x");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer) return;
     if (isSpin) {
@@ -109,92 +100,66 @@ export const MolViewer: FC<{ pdbText: string | null }> = ({ pdbText }) => {
     } else {
       viewer.spin(false);
     }
-  }, [isSpin, axis, speed]);
-
-  if (!pdbText) {
-    return <div>Loading...</div>;
-  }
+  }, [axis, isSpin, speed]);
 
   return (
     <div>
-      <div
-        ref={render}
-        style={{
-          marginInline: "auto",
-          position: "relative",
-          width: "800px",
-          height: "600px",
-        }}
-      />
+      <div ref={render} className="mx-auto relative w-[1024x] h-[768px]">
+        <canvas ref={canvasRef} className="border" />
+      </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: "2rem",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <Select value={axis} onValueChange={setAxis}>
-          <SelectTrigger className="">
+      <div className="flex gap-4 mt-4 justify-center items-end">
+        <Button variant="outline" onClick={() => setIsSpin((prev) => !prev)}>
+          {isSpin ? <SquareCheck /> : <Square />}
+          Spin
+        </Button>
+
+        <Select name="axis" value={axis} onValueChange={setAxis}>
+          <SelectTrigger>
             <SelectValue placeholder="Axis" />
           </SelectTrigger>
 
           <SelectContent>
-            <SelectItem value="none">None</SelectItem>
-            <SelectItem value="vx">X-axis</SelectItem>
-            <SelectItem value="vy">Y-axis</SelectItem>
-            <SelectItem value="vz">Z-azis</SelectItem>
+            <SelectItem value="vx">VX</SelectItem>
+            <SelectItem value="vy">VY</SelectItem>
+            <SelectItem value="vz">VZ</SelectItem>
           </SelectContent>
         </Select>
 
-        <input
-          type="number"
-          value={speed}
-          onChange={(e) => setSpeed(+e.target.value)}
-        />
+        <div className="flex gap-1 items-center">
+          <Input
+            name="speed"
+            type="number"
+            value={speed}
+            onChange={(e) => setSpeed(Math.max(1, e.target.valueAsNumber))}
+            className="w-20 appearance-none"
+          />
+        </div>
 
-        <Button onClick={handleRecord}>
-          {recording ? "Recording..." : "Record"}
+        <Button
+          variant={videoUrl ? "destructive" : "outline"}
+          onClick={() => {
+            if (videoUrl) {
+              reset();
+            } else {
+              start(5);
+            }
+          }}
+          disabled={!videoUrl && !isSpin}
+        >
+          {videoUrl ? (
+            "Clear"
+          ) : recording ? (
+            <LoaderCircle className="animate-spin" />
+          ) : (
+            "Record 5s"
+          )}
         </Button>
-
-        {/* 平行移動 */}
-        <div>
-          <h3>移動</h3>
-          <div style={{ textAlign: "center" }}>
-            <Button onClick={() => panCamera(0, 20)}>↑ 上</Button>
-            <br />
-            <Button onClick={() => panCamera(-20, 0)}>← 左</Button>
-            <Button onClick={() => panCamera(20, 0)}>右 →</Button>
-            <br />
-            <Button onClick={() => panCamera(0, -20)}>↓ 下</Button>
-          </div>
-        </div>
-
-        {/* 回転 */}
-        <div>
-          <h3>回転</h3>
-          <div style={{ textAlign: "center" }}>
-            <Button onClick={() => rotateCamera(10, "x")}>↻ X+10°</Button>
-            <Button onClick={() => rotateCamera(-10, "x")}>↺ X-10°</Button>
-            <br />
-            <Button onClick={() => rotateCamera(10, "y")}>↻ Y+10°</Button>
-            <Button onClick={() => rotateCamera(-10, "y")}>↺ Y-10°</Button>
-          </div>
-        </div>
-
-        {/* ズーム */}
-        <div>
-          <h3>ズーム</h3>
-          <div style={{ textAlign: "center" }}>
-            <Button onClick={() => zoomCamera(1.2)}>🔍 拡大</Button>
-            <Button onClick={() => zoomCamera(0.8)}>🔎 縮小</Button>
-          </div>
-        </div>
       </div>
 
-      {url && <video src={url} controls width={800} height={600}></video>}
+      {videoUrl && (
+        <video src={videoUrl} controls className="ml-auto mr-auto"></video>
+      )}
     </div>
   );
 };
