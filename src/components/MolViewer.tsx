@@ -22,6 +22,7 @@ export const MolViewer: FC<{ pdbText: string }> = ({ pdbText }) => {
   const [isSpin, setIsSpin] = useState<boolean>(false);
   const [axis, setAxis] = useState<string>("vy");
   const [speed, setSpeed] = useState<number>(1);
+  const [canPlay, setCanPlay] = useState<boolean>(false);
 
   const viewerRef = useRef<any>(null);
   const { canvasRef, recording, reset, start, videoUrl } = useCanvasRecorder();
@@ -141,6 +142,7 @@ export const MolViewer: FC<{ pdbText: string }> = ({ pdbText }) => {
           onClick={() => {
             if (videoUrl) {
               reset();
+              setCanPlay(false);
             } else {
               start(5);
             }
@@ -158,7 +160,13 @@ export const MolViewer: FC<{ pdbText: string }> = ({ pdbText }) => {
       </div>
 
       {videoUrl && (
-        <video src={videoUrl} controls className="ml-auto mr-auto"></video>
+        <video
+          src={videoUrl}
+          controls
+          className="ml-auto mr-auto"
+          onCanPlay={() => setCanPlay(true)}
+          style={{ display: canPlay ? "block" : "none" }}
+        />
       )}
     </div>
   );

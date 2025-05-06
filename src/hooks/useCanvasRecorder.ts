@@ -14,7 +14,7 @@ export function useCanvasRecorder() {
     }
     const stream = canvas.captureStream(60);
     const recorder = new MediaRecorder(stream, {
-      mimeType: "video/mp4",
+      mimeType: "video/mp4;codecs=avc1.42E01E",
     });
     mediaRecorderRef.current = recorder;
     const chunks: BlobPart[] = [];
@@ -24,7 +24,7 @@ export function useCanvasRecorder() {
     recorder.start();
     setRecording(true);
 
-    setTimeout(() => recorder.stop(), (sec + 1) * 1000);
+    setTimeout(() => recorder.stop(), sec * 1000);
 
     recorder.onstop = () => {
       const blob = new Blob(chunks, { type: recorder.mimeType });
