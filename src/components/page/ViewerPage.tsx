@@ -33,7 +33,7 @@ export const ViewerPage: FC<{}> = ({}) => {
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">
-          <MolViewer pdbText={activeFile.content} />
+          <MolViewer fileName={activeFile.name} pdbText={activeFile.content} />
         </CardContent>
       </Card>
     </div>

@@ -18,7 +18,10 @@ import { Input } from "@/components/ui/input.tsx";
 import { LoaderCircle, Square, SquareCheck } from "lucide-react";
 import { useCanvasRecorder } from "@/hooks/useCanvasRecorder.ts";
 
-export const MolViewer: FC<{ pdbText: string }> = ({ pdbText }) => {
+export const MolViewer: FC<{ fileName: string; pdbText: string }> = ({
+  fileName,
+  pdbText,
+}) => {
   const [isSpin, setIsSpin] = useState<boolean>(false);
   const [axis, setAxis] = useState<string>("vy");
   const [speed, setSpeed] = useState<number>(1);
@@ -160,13 +163,21 @@ export const MolViewer: FC<{ pdbText: string }> = ({ pdbText }) => {
       </div>
 
       {videoUrl && (
-        <video
-          src={videoUrl}
-          controls
-          className="ml-auto mr-auto"
-          onCanPlay={() => setCanPlay(true)}
-          style={{ display: canPlay ? "block" : "none" }}
-        />
+        <>
+          <Button variant="link">
+            <a href={videoUrl} download={fileName + ".mp4"}>
+              Download
+            </a>
+          </Button>
+
+          <video
+            src={videoUrl}
+            controls
+            className="ml-auto mr-auto"
+            onCanPlay={() => setCanPlay(true)}
+            style={{ display: canPlay ? "block" : "none" }}
+          />
+        </>
       )}
     </div>
   );
