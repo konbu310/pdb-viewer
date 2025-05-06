@@ -108,7 +108,7 @@ export const MolViewer: FC<{ fileName: string; pdbText: string }> = ({
 
   return (
     <div>
-      <div ref={render} className="mx-auto relative w-[1024x] h-[768px]">
+      <div ref={render} className="mx-auto relative w-[800px] h-[600px]">
         <canvas ref={canvasRef} className="border" />
       </div>
 
@@ -147,7 +147,7 @@ export const MolViewer: FC<{ fileName: string; pdbText: string }> = ({
               reset();
               setCanPlay(false);
             } else {
-              start(5);
+              start(10);
             }
           }}
           disabled={!videoUrl && !isSpin}
@@ -157,7 +157,7 @@ export const MolViewer: FC<{ fileName: string; pdbText: string }> = ({
           ) : recording ? (
             <LoaderCircle className="animate-spin" />
           ) : (
-            "Record 5s"
+            "Record 10s"
           )}
         </Button>
       </div>
